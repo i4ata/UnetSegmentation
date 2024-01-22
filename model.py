@@ -1,38 +1,51 @@
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from torchvision.utils import draw_segmentation_masks
 from torch.utils.tensorboard.writer import SummaryWriter
 
 import numpy as np
 
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, Literal
 
 from dataset import get_image
 from early_stopper import EarlyStopper
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SegmentationModel(nn.Module):
+    """Base class for segmentation model
+    
+    Attributes:
+        name: str
+        device: 'cpu' or 'cuda'
+        optimizer: PyTorch optimizer
+        early_stopper: Optionally, enable early stopping
+        lr_scheduler: Optionally, enable lr scheduling
+        save_path: str - where to save the model
+    """
+
     def __init__(self) -> None:
 
         super().__init__()
         self.name: str = "base name"
-        self.device: str = None
+        self.device: Literal['cpu', 'cuda'] = DEVICE
+
         self.optimizer: torch.optim.Optimizer = None
         self.early_stopper: EarlyStopper = None
         self.lr_scheduler: torch.optim.lr_scheduler.LRScheduler = None
         self.save_path: str = None
 
     def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        pass
+        raise NotImplementedError()
 
     def _train_step(self, data_loader: DataLoader) -> float:
+        """Standard stuff"""
         self.train()
         total_loss = 0.
         for images, masks in data_loader:
-            images, masks = images.to(device), masks.to(device)
+            images, masks = images.to(DEVICE), masks.to(DEVICE)
             
             self.optimizer.zero_grad()
             logits, loss = self(images, masks)
@@ -44,17 +57,18 @@ class SegmentationModel(nn.Module):
         return total_loss / len(data_loader)
 
     def _test_step(self, data_loader: DataLoader) -> float:
+        """Standard stuff"""
         self.eval()
         total_loss = 0.
         with torch.inference_mode():
             for images, masks in data_loader:
-                images, masks = images.to(device), masks.to(device)
+                images, masks = images.to(self.device), masks.to(self.device)
                 logits, loss = self(images, masks)
                 total_loss += loss.item()
         return total_loss / len(data_loader)
 
-    def train_model(self, train_loader: DataLoader, test_loader: DataLoader, epochs: int) -> None:
-        
+    def train_model(self, train_loader: DataLoader, test_loader: DataLoader, epochs: int = 10) -> None:
+        """Standard things"""
         writer = SummaryWriter(log_dir='runs')
         
         for i in range(epochs):
@@ -84,18 +98,24 @@ class SegmentationModel(nn.Module):
             self.save()
         writer.close()
 
-    def save(self):
+    def save(self) -> None:
+        """Save the model's state dict to memory"""
         torch.save(self.state_dict(), self.save_path)
 
     def load(self) -> None:
-        self.load_state_dict(torch.load(self.save_path, map_location=device))
+        """Load the model from memory"""
+        self.load_state_dict(torch.load(self.save_path, map_location=self.device))
         self.eval()
 
-    def predict(self, test_image_path: str) -> np.ndarray:
+    def predict(self, 
+                test_image_path: str, 
+                option: Literal['mask', 'image_with_mask', 'mask_and_image_with_mask'] = 'image_with_mask'
+        ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+        """Predict with a trained model on an image"""
         self.eval()
         data = get_image(img_path=test_image_path, transform='test')
         with torch.inference_mode():
-            logits = self(torch.unsqueeze(data['transformed']['image'], 0).to(device)).squeeze().cpu().detach()
+            logits = self(data['transformed']['image'].unsqueeze(0).to(self.device)).squeeze().cpu().detach()
         probs = torch.sigmoid(logits)
         mask = probs > .5
 
@@ -111,7 +131,12 @@ class SegmentationModel(nn.Module):
                                                   alpha=.5,
                                                   colors='white')
 
-        return image_with_mask.permute(1,2,0).numpy()
+        if option == 'mask':
+            return resized_mask_tensor.numpy()
+        if option == 'image_with_mask':
+            return image_with_mask.permute(1,2,0).numpy()
+        if option == 'mask_and_image_with_mask':
+            return resized_mask_tensor.numpy(), image_with_mask.permute(1,2,0).numpy()
     
     def print_summary(self) -> None:
         pass

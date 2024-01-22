@@ -1,3 +1,5 @@
+"""Launch a gradio application"""
+
 import gradio as gr
 import random as rd
 from glob import glob
