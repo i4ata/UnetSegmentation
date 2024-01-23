@@ -18,14 +18,18 @@ class Unet(SegmentationModel):
         loss_fn: the loss function used to train the model
     """
     
-    def __init__(self, name: str = "default_name") -> None:
+    def __init__(self, 
+                 name: str = 'default_name', 
+                 image_size: Tuple[int, int] = (320, 320), 
+                 device: str = 'cuda' if torch.cuda.is_available() else 'cpu') -> None:
         """Instantiate Unet with `imagenet` pretrained weights.
         Use `Adam` as an optimizer, loss function is the sum of DICE and BCE
         """
         super().__init__()
         
         self.name = name
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.image_size = image_size
+        self.device = device
         self.unet = smp.Unet(
             encoder_name='timm-efficientnet-b0',
             encoder_weights='imagenet',
@@ -34,14 +38,16 @@ class Unet(SegmentationModel):
             activation=None
         ).to(self.device)
         
-        self.optimizer = torch.optim.Adam(params=self.unet.parameters(), lr=1e-3)
-        self.early_stopper = EarlyStopper()
         self.save_path = f'models/{self.name}.pth'
         
         bce_loss_fn = nn.BCEWithLogitsLoss()
         dice_loss_fn = smp.losses.DiceLoss(mode='binary')
         self.loss_fn = lambda logits, masks: bce_loss_fn(logits, masks) + dice_loss_fn(logits, masks)
     
+    def configure_optimizers(self, **kwargs):
+        self.optimizer = torch.optim.Adam(params=self.unet.parameters(), lr=kwargs['lr'])
+        self.early_stopper = EarlyStopper(patience=kwargs['patience'])
+
     def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Forward pass"""
         logits = self.unet(images)

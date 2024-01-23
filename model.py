@@ -8,13 +8,12 @@ from torchvision.utils import draw_segmentation_masks
 from torch.utils.tensorboard.writer import SummaryWriter
 
 import numpy as np
+import cv2 as cv
+import albumentations as A
 
 from typing import Optional, Union, Tuple, Literal
 
-from dataset import get_image
 from early_stopper import EarlyStopper
-
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SegmentationModel(nn.Module):
     """Base class for segmentation model
@@ -38,16 +37,17 @@ class SegmentationModel(nn.Module):
         print_summary: print the structure of the model (to be used with torchsummary)
     """
 
-    def __init__(self) -> None:
-        """Define the attributes. To be overwritten in subclasses"""
-        super().__init__()
-        self.name: str = "base name"
-        self.device: Literal['cpu', 'cuda'] = DEVICE
+    name: str = "base name"
+    device: Literal['cpu', 'cuda'] = None
 
-        self.optimizer: torch.optim.Optimizer = None
-        self.early_stopper: EarlyStopper = None
-        self.lr_scheduler: torch.optim.lr_scheduler.LRScheduler = None
-        self.save_path: str = None
+    optimizer: torch.optim.Optimizer = None
+    early_stopper: EarlyStopper = None
+    lr_scheduler: torch.optim.lr_scheduler.LRScheduler = None
+    save_path: str = None
+    image_size: Tuple[int, int] = None
+
+    def configure_optimizers(self, **kwargs) -> None:
+        raise NotImplementedError()
 
     def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Forward pass. To be overwritten in subclasses
@@ -74,7 +74,7 @@ class SegmentationModel(nn.Module):
         self.train()
         total_loss = 0.
         for images, masks in data_loader:
-            images, masks = images.to(DEVICE), masks.to(DEVICE)
+            images, masks = images.to(self.device), masks.to(self.device)
             
             self.optimizer.zero_grad()
             logits, loss = self(images, masks)
@@ -102,7 +102,7 @@ class SegmentationModel(nn.Module):
                 total_loss += loss.item()
         return total_loss / len(data_loader)
 
-    def train_model(self, train_loader: DataLoader, test_loader: DataLoader, epochs: int = 10) -> None:
+    def train_model(self, train_loader: DataLoader, test_loader: DataLoader, epochs: int, log_dir: str) -> None:
         """Standard training procedure. Log results to tensorboard.
         Use early stopping and learning rate scheduling if implemented
         
@@ -110,7 +110,7 @@ class SegmentationModel(nn.Module):
             train_loader, test_loader: the PyTorch Dataloaders used for training and validation
             epochs: the number of training epochs
         """
-        writer = SummaryWriter(log_dir='runs')
+        writer = SummaryWriter(log_dir=f'{log_dir}/{self.name}')
         
         for i in range(epochs):
             train_loss = self._train_step(train_loader)
@@ -161,15 +161,16 @@ class SegmentationModel(nn.Module):
             depending on the value of `option`
         """
         self.eval()
-        data = get_image(img_path=test_image_path, transform='test')
+        
+        original_image = cv.cvtColor(cv.imread(test_image_path), cv.COLOR_BGR2RGB)
+        original_image_tensor = torch.from_numpy(original_image).permute(2,0,1).type(torch.uint8)
+        image_tensor = (torch.from_numpy(cv.resize(original_image, dsize=self.image_size, interpolation=cv.INTER_LINEAR)).float() / 255).permute(2,0,1)
+
         with torch.inference_mode():
-            logits = self(data['transformed']['image'].unsqueeze(0).to(self.device)).squeeze().cpu().detach()
+            logits = self(image_tensor.unsqueeze(0).to(self.device)).squeeze().cpu().detach()
         probs = torch.sigmoid(logits)
         mask = probs > .5
 
-        original_image: np.ndarray = data['original']['image']
-        
-        original_image_tensor = torch.from_numpy(original_image).permute(2,0,1).type(torch.uint8)
         resized_mask_tensor = F.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), 
                                             size=original_image.shape[:-1], 
                                             mode='nearest').squeeze().bool()
