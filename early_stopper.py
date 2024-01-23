@@ -1,11 +1,26 @@
+"""This module contains a class that implements early stopping regularization technique"""
+
 class EarlyStopper:
+    """Class that facilitates early stopping to prevent model overfitting
+
+    Attributes:
+        patience: the number of epochs in a row where 
+                  it's ok that the validation loss is not decreasing
+        best_loss: keeps track of the current lowest validation loss value
+        counter: keeps track of the number of epochs in which the validation loss hasn't decreased
+        save_model: if True, make a checkpoint of the model
+
+    Methods:
+        check: check whether the model should be stopped early. If not, check if a checkpoint should be made
+    """
 
     def __init__(self, patience: int = 2):
         """Create an early stopper with patience
         
         Args: 
-            patience: the number of epochs in arrow where 
+            patience: the number of epochs in a row where 
                       it's ok that the validation loss is not decreasing.
+        
         """
         self.patience = patience
         self.best_loss = float('inf')

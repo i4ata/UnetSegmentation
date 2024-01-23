@@ -1,3 +1,5 @@
+"""This module contains the base class for segmentation models"""
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -24,10 +26,20 @@ class SegmentationModel(nn.Module):
         early_stopper: Optionally, enable early stopping
         lr_scheduler: Optionally, enable lr scheduling
         save_path: str - where to save the model
+
+    Methods:
+        forward: defines the forward pass
+        _train_step: how a single pass through the training dataloader goes
+        _test_step: how a single pass through the testing dataloader goes
+        train_model: train the model
+        save: save a checkpoint of the model's state dict to memory
+        load: load a model's state dict from memory
+        predict: perform inference on a single image
+        print_summary: print the structure of the model (to be used with torchsummary)
     """
 
     def __init__(self) -> None:
-
+        """Define the attributes. To be overwritten in subclasses"""
         super().__init__()
         self.name: str = "base name"
         self.device: Literal['cpu', 'cuda'] = DEVICE
@@ -38,10 +50,27 @@ class SegmentationModel(nn.Module):
         self.save_path: str = None
 
     def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """Forward pass. To be overwritten in subclasses
+        
+        Args:
+            images: tensor (BCHW)
+            masks: tensor (B1HW)
+
+        Returns:
+            logits of the model
+            or
+            logits with loss function
+        """
         raise NotImplementedError()
 
     def _train_step(self, data_loader: DataLoader) -> float:
-        """Standard stuff"""
+        """Standard training step. Optimize the model parameters.
+        
+        Args:
+            data_loader: data into batches
+        Returns:
+            mean loss for the dataloader
+        """
         self.train()
         total_loss = 0.
         for images, masks in data_loader:
@@ -57,7 +86,13 @@ class SegmentationModel(nn.Module):
         return total_loss / len(data_loader)
 
     def _test_step(self, data_loader: DataLoader) -> float:
-        """Standard stuff"""
+        """Standard testing step. Perform inference on the test data
+        
+        Args:
+            data_loader: data into batches
+        Returns:
+            mean loss for the dataloader
+        """
         self.eval()
         total_loss = 0.
         with torch.inference_mode():
@@ -68,7 +103,13 @@ class SegmentationModel(nn.Module):
         return total_loss / len(data_loader)
 
     def train_model(self, train_loader: DataLoader, test_loader: DataLoader, epochs: int = 10) -> None:
-        """Standard things"""
+        """Standard training procedure. Log results to tensorboard.
+        Use early stopping and learning rate scheduling if implemented
+        
+        Args:
+            train_loader, test_loader: the PyTorch Dataloaders used for training and validation
+            epochs: the number of training epochs
+        """
         writer = SummaryWriter(log_dir='runs')
         
         for i in range(epochs):
@@ -111,7 +152,14 @@ class SegmentationModel(nn.Module):
                 test_image_path: str, 
                 option: Literal['mask', 'image_with_mask', 'mask_and_image_with_mask'] = 'image_with_mask'
         ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Predict with a trained model on an image"""
+        """Predict with a trained model on an image.
+        
+        Args:
+            test_image_path: path to the image to predict
+            option: whether to return the image with the overlayed mask, only the mask, or both
+        Return:
+            depending on the value of `option`
+        """
         self.eval()
         data = get_image(img_path=test_image_path, transform='test')
         with torch.inference_mode():
@@ -139,4 +187,5 @@ class SegmentationModel(nn.Module):
             return resized_mask_tensor.numpy(), image_with_mask.permute(1,2,0).numpy()
     
     def print_summary(self) -> None:
+        """Print the model architecture"""
         pass

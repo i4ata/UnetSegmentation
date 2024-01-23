@@ -6,19 +6,22 @@ from glob import glob
 
 from unet import Unet
 
-model = Unet(name='unet')
-model.load()
+if __name__ == '__main__':
 
-example_list = rd.sample(glob('Human-Segmentation-Dataset-master/Training_Images/*.jpg'), k=3)
+    model = Unet(name='unet')
+    model.load()
 
-demo = gr.Interface(
-    fn=model.predict,
-    inputs=gr.Image(type='filepath'),
-    outputs=gr.Image(type='numpy'),
-    title='Penis title',
-    description='Penis description',
-    article='Penis article',
-    examples=example_list
-)
+    # Get 3 random examples from the dataset
+    example_list = rd.sample(glob('Human-Segmentation-Dataset-master/Training_Images/*.jpg'), k=3)
 
-demo.launch(share=True)
+    demo = gr.Interface(
+        fn=model.predict,
+        inputs=gr.Image(type='filepath'),
+        outputs=gr.Image(type='numpy'),
+        title='Penis title',
+        description='Penis description',
+        article='Penis article',
+        examples=example_list
+    )
+
+    demo.launch(share=True)

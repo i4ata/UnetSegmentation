@@ -1,3 +1,5 @@
+"""This module implements the interaction with the dataset"""
+
 import os
 from pathlib import Path
 
@@ -83,8 +85,8 @@ def get_image(
     image_transformed = torch.Tensor(image_transformed) / 255.
     image_transformed = image_transformed.permute(2,0,1)
 
+    # Convert mask to {0, 1}
     if mask_transformed is not None:
-        # Convert mask to {0, 1}
         mask_transformed = torch.Tensor(mask_transformed) / 255
         mask_transformed = torch.round(mask_transformed)
         mask_transformed = mask_transformed.unsqueeze(0)
@@ -101,6 +103,17 @@ def get_image(
     }
 
 class SegmentationDataset:
+    """Class that handles the functionality of semantic segmentation dataset
+
+    Attributes:
+        df: pandas data frame that stores the image file locations and their respective mask file locations
+        train_dataset, test_dataset: PyTorch datasets, initialized after the dataset is split into train and test by invoking split()
+        train_dataloader, test_dataloader: PyTorch dataloaders, initialized after the dataset is split and get_dataloaders() is invoked
+
+    Methods:
+        split: split `df` and instatiate the training and testing datasets with their respective transforms
+        get_dataloaders: instantiate the training and testing dataloaders from the training and testing datasets
+    """
     def __init__(self) -> None:
         """
         Create a segmentation dataset.
@@ -130,7 +143,7 @@ class SegmentationDataset:
         self.test_dataset = TorchDataset(test_df, TEST_TRANSFORM)
 
     def get_dataloaders(self, batch_size: int = 32) -> None:
-        """After the data is split, get data loaders
+        """After the data is split, instantiate the data loaders
         
         Args:
             batch_size: size of 1 batch
@@ -143,9 +156,17 @@ class SegmentationDataset:
         self.test_dataloader = DataLoader(dataset=self.test_dataset, 
                                           batch_size=batch_size)
 
-
 class TorchDataset(Dataset):
+    """This class is an extension of a standard PyTorch dataset that includes data augmentation
+    
+    Attributes:
+        df: The pandas dataframe containing the images and masks file locations
+        augmentation: an Albumentations augmentation procedure
 
+    Methods:
+        __len__: get the number of samples in the dataset
+        __getitem__: get the transformed image and mask at that index
+    """
     def __init__(self, df: pd.DataFrame, augmentation: Optional[A.Compose] = None) -> None:
         """Create a torch dataset
         
