@@ -22,51 +22,48 @@ class DoubleConv(nn.Module):
     def forward(self, x: torch.Tensor):
         return self.relu(self.conv2(self.relu(self.conv1(x))))
     
+class Up(nn.Module):
+
+    def __init__(self, in_channels, out_channels) -> None:
+        super().__init__()
+        self.upconv = nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, stride=2)
+        self.conv = DoubleConv(in_channels=in_channels, out_channels=out_channels)
+
+    def forward(self, x_left, x_right):
+        return self.conv(torch.cat((x_left, self.upconv(x_right)), dim=1))
+
 class CustomUnet(nn.Module):
     
-    def __init__(self, in_channels: int = 3, out_channels: int = 1) -> None:
+    def __init__(self, in_channels: int = 3, out_channels: int = 1, depth: int = 3, start_channels: int = 16) -> None:
         
         super().__init__()
         
-        self.down1 = DoubleConv(in_channels, 64)
-        self.down2 = DoubleConv(64, 128)
-        self.down3 = DoubleConv(128, 256)
-        self.down4 = DoubleConv(256, 512)
-        self.down5 = DoubleConv(512, 1024)
+        self.encoder_layers = nn.ModuleList([DoubleConv(in_channels, start_channels)])
+        for i in range(depth):
+            self.encoder_layers.append(DoubleConv(start_channels, start_channels * 2))
+            start_channels *= 2
+            
+        self.decoder_layers = nn.ModuleList()
+        for i in range(depth):
+            self.decoder_layers.append(Up(start_channels, start_channels // 2))
+            start_channels //= 2
 
-        self.upconv1 = nn.ConvTranspose2d(1024, 512, 2, 2)
-        self.up1 = DoubleConv(1024, 512)
-        
-        self.upconv2 = nn.ConvTranspose2d(512, 256, 2, 2)
-        self.up2 = DoubleConv(512, 256)
-
-        self.upconv3 = nn.ConvTranspose2d(256, 128, 2, 2)
-        self.up3 = DoubleConv(256, 128)
-
-        self.upconv4 = nn.ConvTranspose2d(128, 64, 2, 2)
-        self.up4 = DoubleConv(128, 64)
-
-        self.outpu_conv = nn.Conv2d(64, out_channels, 1)
+        self.output_conv = nn.Conv2d(start_channels, out_channels, kernel_size=1)
         self.pool = nn.MaxPool2d(2, 2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         
-        x1 = self.down1(x)
-        x2 = self.down2(self.pool(x1))
-        x3 = self.down3(self.pool(x2))
-        x4 = self.down4(self.pool(x3))
-        x5 = self.down5(self.pool(x4))
+        x = self.encoder_layers[0](x)
+        xs = [x]
 
-        x = self.upconv1(x5)
-        x = self.up1(torch.cat((x4, x), dim=1))
-        x = self.upconv2(x)
-        x = self.up2(torch.cat((x3, x), dim=1))
-        x = self.upconv3(x)
-        x = self.up3(torch.cat((x2, x), dim=1))
-        x = self.upconv4(x)
-        x = self.up4(torch.cat((x1, x), dim=1))
+        for encoding_layer in self.encoder_layers[1:]:
+            x = encoding_layer(self.pool(x))
+            xs.append(x)
+            
+        for decoding_layer, x_left in zip(self.decoder_layers, reversed(xs[:-1])):
+            x = decoding_layer(x_left, x)
 
-        return self.outpu_conv(x)
+        return self.output_conv(x)
 
 if __name__ == '__main__':
     batch_images = torch.rand(size=(16,3,512,512), device=device)
