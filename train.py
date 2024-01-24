@@ -1,29 +1,31 @@
 """Script to train a Unet"""
 
-from unet import Unet
-from dataset import SegmentationDataset
-
 import torch
 import albumentations as A
 
+from unet import Unet
+from dataset import SegmentationDataset
+
 import argparse
-from typing import Tuple
-import logging
 
 def parse_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image_size', type=Tuple[int, int], nargs=2, default=(320,320), help='Model input size')
-    parser.add_argument('--lr', type=float, default=1e-3, help='Optimizer learning rate')
-    parser.add_argument('--encoder_name', type=str, default='timm-efficientnet-b0', help='Unet encoder')
-    parser.add_argument('--augmentation', type=bool, default=True, help='Include data augmentation for training')
-    parser.add_argument('--epochs', type=int, default=25, help='Number of training epochs')
-    parser.add_argument('--patience', type=int, default=2, help='Early stopping patience')
-    parser.add_argument('--train_size', type=float, default=.8, help='Proportion of data used for training')
-    parser.add_argument('--batch_size', type=int, default=32, help='Model batch size')
-    parser.add_argument('--model_name', type=str, default='unet', help='Name of the model')
-    parser.add_argument('--log_dir', type=str, default='runs', help='Where to load the model training')
-    parser.add_argument('--device', type=str, default='cuda', choices=('cpu', 'cuda'), help='Device on which to train the model')
+    
+    parser.add_argument('--image_height',   type=int,   default=320,                    help='Input image height')
+    parser.add_argument('--image_width',    type=int,   default=320,                    help='Input image weight')
+    parser.add_argument('--image_channels', type=int,   default=3,                      help='Input image channels')
+    parser.add_argument('--lr',             type=float, default=1e-3,                   help='Optimizer learning rate')
+    parser.add_argument('--encoder_name',   type=str,   default='timm-efficientnet-b0', help='Unet encoder')
+    parser.add_argument('--pretrained',     type=bool,  default=True,                   help='Whether to use a pretrained model')
+    parser.add_argument('--augmentation',   type=bool,  default=True,                   help='Include data augmentation for training')
+    parser.add_argument('--epochs',         type=int,   default=25,                     help='Number of training epochs')
+    parser.add_argument('--patience',       type=int,   default=2,                      help='Early stopping patience')
+    parser.add_argument('--train_size',     type=float, default=.8,                     help='Proportion of data used for training')
+    parser.add_argument('--batch_size',     type=int,   default=32,                     help='Model batch size')
+    parser.add_argument('--model_name',     type=str,   default='unet',                 help='Name of the model')
+    parser.add_argument('--log_dir',        type=str,   default='runs',                 help='Where to load the model training')
+    parser.add_argument('--device',         type=str,   default='cuda',                 help='Device on which to train the model', choices=('cpu', 'cuda'))
 
     return parser.parse_args()
 
@@ -35,13 +37,14 @@ if __name__ == '__main__':
 
     args = parse_args()
     if args.device == 'cuda' and not torch.cuda.is_available():
-        print('device set to cuda but no cuda found. Defaulting to cpu')
+        print('Device set to cuda but no cuda found. Defaulting to cpu')
         args.device = 'cpu'
-
+    image_size = (args.image_height, args.image_width)
+    
     # Training data augmentation
     TRAIN_TRANSFORM = A.Compose(
         transforms=[
-            A.Resize(*args.image_size),
+            A.Resize(*image_size),
             A.HorizontalFlip(p=.5),
             A.VerticalFlip(p=.5)
         ], 
@@ -51,7 +54,7 @@ if __name__ == '__main__':
     # Testing data augmentation
     TEST_TRANSFORM = A.Compose(
         transforms=[
-            A.Resize(*args.image_size) 
+            A.Resize(*image_size) 
         ], 
         is_check_shapes=False
     )
@@ -62,8 +65,15 @@ if __name__ == '__main__':
                   test_transform=TEST_TRANSFORM,
                   random_state=random_state)
     dataset.get_dataloaders(batch_size=args.batch_size)
-    model = Unet(name=args.model_name, image_size=args.image_size, device=args.device)
+
+    model = Unet(name=args.model_name, 
+                 image_size=image_size, 
+                 encoder_name=args.encoder_name,
+                 pretrained=args.pretrained,
+                 in_channels=args.image_channels,
+                 device=args.device)
     model.configure_optimizers(lr=args.lr, patience=args.patience)
+    
     model.train_model(dataset.train_dataloader, 
                       dataset.test_dataloader, 
                       epochs=args.epochs, 

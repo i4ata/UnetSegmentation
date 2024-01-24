@@ -1,14 +1,12 @@
 """This module implements the interaction with the dataset"""
 
-import os
-import logging
-
-import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
+import pandas as pd
 import albumentations as A
 import cv2 as cv
 
+import os
 from typing import Optional, Tuple
 
 class SegmentationDataset:

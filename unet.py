@@ -20,7 +20,10 @@ class Unet(SegmentationModel):
     
     def __init__(self, 
                  name: str = 'default_name', 
-                 image_size: Tuple[int, int] = (320, 320), 
+                 image_size: Tuple[int, int] = (320, 320),
+                 encoder_name: str = 'timm-efficientnet-b0',
+                 pretrained: bool = True,
+                 in_channels: int = 3,
                  device: str = 'cuda' if torch.cuda.is_available() else 'cpu') -> None:
         """Instantiate Unet with `imagenet` pretrained weights.
         Use `Adam` as an optimizer, loss function is the sum of DICE and BCE
@@ -29,11 +32,12 @@ class Unet(SegmentationModel):
         
         self.name = name
         self.image_size = image_size
+        self.in_channels = in_channels
         self.device = device
         self.unet = smp.Unet(
-            encoder_name='timm-efficientnet-b0',
-            encoder_weights='imagenet',
-            in_channels=3,
+            encoder_name=encoder_name,
+            encoder_weights='imagenet' if pretrained else None,
+            in_channels=in_channels,
             classes=1,
             activation=None
         ).to(self.device)
@@ -55,8 +59,8 @@ class Unet(SegmentationModel):
             return logits
         return logits, self.loss_fn(logits, masks)
     
-    def print_summary(self) -> None:
+    def print_summary(self, batch_size: int = 16) -> None:
         """Summary of model architecture"""
-        print(summary(self.unet, input_size=(16, 3, 320, 320),
+        print(summary(self.unet, input_size=(batch_size, self.in_channels, *self.image_size),
                       col_names=['input_size', 'output_size', 'num_params'],
                       row_settings=['var_names']))

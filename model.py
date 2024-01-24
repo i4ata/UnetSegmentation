@@ -1,10 +1,10 @@
 """This module contains the base class for segmentation models"""
 
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.utils import draw_segmentation_masks
+from torchvision.transforms.functional import resize
 from torch.utils.tensorboard.writer import SummaryWriter
 
 import numpy as np
@@ -135,7 +135,8 @@ class SegmentationModel(nn.Module):
                                global_step=i)
                                 
         else:
-            print('Model did not converge. Possibility of underfitting')
+            if self.early_stopper is not None:
+                print('Model did not converge. Possibility of underfitting')
             self.save()
         writer.close()
 
@@ -161,22 +162,21 @@ class SegmentationModel(nn.Module):
             depending on the value of `option`
         """
         self.eval()
+        input_resizer = A.Resize(*self.image_size)
         
         original_image = cv.cvtColor(cv.imread(test_image_path), cv.COLOR_BGR2RGB)
         original_image_tensor = torch.from_numpy(original_image).permute(2,0,1).type(torch.uint8)
-        image_tensor = (torch.from_numpy(cv.resize(original_image, dsize=self.image_size, interpolation=cv.INTER_LINEAR)).float() / 255).permute(2,0,1)
+        resized_image_tensor = (torch.from_numpy(input_resizer(image=original_image)['image']).float() / 255.).permute(2,0,1)
 
         with torch.inference_mode():
-            logits = self(image_tensor.unsqueeze(0).to(self.device)).squeeze().cpu().detach()
+            logits = self(resized_image_tensor.unsqueeze(0).to(self.device)).squeeze().cpu().detach()
         probs = torch.sigmoid(logits)
-        mask = probs > .5
+        resized_mask_tensor = probs > .5
 
-        resized_mask_tensor = F.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), 
-                                            size=original_image.shape[:-1], 
-                                            mode='nearest').squeeze().bool()
+        original_mask_tensor = resize(resized_mask_tensor, size=original_image.shape[:-1], antialias=True)
         
         image_with_mask = draw_segmentation_masks(image=original_image_tensor,
-                                                  masks=resized_mask_tensor,
+                                                  masks=original_mask_tensor,
                                                   alpha=.5,
                                                   colors='white')
 
