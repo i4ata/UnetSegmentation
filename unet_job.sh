@@ -11,4 +11,4 @@ module load Python/3.9.6-GCCcore-11.2.0
 
 source ~/env/bin/activate
 
-python train.py --model_name custom_unet --use_custom True --lr 0.0005 --patience 4 --start_channels 8
+python train.py 

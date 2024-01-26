@@ -141,8 +141,8 @@ class SegmentationModel(nn.Module):
         writer.close()
 
     def save(self) -> None:
-        """Save the model to memory. State dict not used to account for different models"""
-        torch.save(self, self.save_path)
+        """Save the model to memory"""
+        raise NotImplementedError()
 
     def predict(self, 
                 test_image_path: str, 
@@ -164,10 +164,10 @@ class SegmentationModel(nn.Module):
         resized_image_tensor = (torch.from_numpy(input_resizer(image=original_image)['image']).float() / 255.).permute(2,0,1)
 
         with torch.inference_mode():
-            logits = self(resized_image_tensor.unsqueeze(0).to(self.device)).squeeze().cpu().detach()
+            logits = self(resized_image_tensor.unsqueeze(0).to(self.device)).squeeze(0).cpu().detach()
         probs = torch.sigmoid(logits)
         resized_mask_tensor = probs > .5
-
+        
         original_mask_tensor = resize(resized_mask_tensor, size=original_image.shape[:-1], antialias=True)
         
         image_with_mask = draw_segmentation_masks(image=original_image_tensor,
@@ -184,9 +184,4 @@ class SegmentationModel(nn.Module):
     
     def print_summary(self) -> None:
         """Print the model architecture"""
-        pass
-
-def load_model(model_name: str, device: str = 'cpu') -> SegmentationModel:
-    model = torch.load(f'models/{model_name}.pth', map_location=device)
-    model.eval()
-    return model
+        raise NotImplementedError()

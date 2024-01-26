@@ -7,6 +7,7 @@ Additional things: https://towardsdatascience.com/understanding-u-net-61276b10f3
 
 import torch
 import torch.nn as nn
+from torchinfo import summary
 
 from model import SegmentationModel
 from early_stopper import EarlyStopper
@@ -82,7 +83,8 @@ class UnetModel(nn.Module):
 
 class CustomUnet(SegmentationModel):
     def __init__(self,
-                 name: str = 'default_name', 
+                 name: str = 'default_name',
+                 from_file: bool = True, 
                  image_size: Tuple[int, int] = (320, 320),
                  in_channels: int = 3,
                  start_channels: int = 16,
@@ -96,10 +98,15 @@ class CustomUnet(SegmentationModel):
 
         self.name = name
         self.image_size = image_size
+        self.in_channels = in_channels
         self.device = device
 
-        self.unet = UnetModel(in_channels=in_channels, depth=encoder_depth, start_channels=start_channels).to(device)
         self.save_path = f'models/{name}.pth'
+
+        if from_file:
+            self.unet = torch.load(self.save_path, map_location=device)
+        else:
+            self.unet = UnetModel(in_channels=in_channels, depth=encoder_depth, start_channels=start_channels).to(device)
 
         self.bce_loss = nn.BCEWithLogitsLoss()
         self.dice_loss = DiceLoss()
@@ -114,6 +121,17 @@ class CustomUnet(SegmentationModel):
         if masks is None:
             return logits
         return logits, self.loss_fn(logits, masks)
+
+    def save(self) -> None:
+        # Save the whole model, not only the state dict, so that it will work for different unets
+        torch.save(self.unet, self.save_path)
+
+    def print_summary(self, batch_size: int = 16) -> None:
+        """Summary of model architecture"""
+        print(summary(self.unet, input_size=(batch_size, self.in_channels, *self.image_size),
+                      col_names=['input_size', 'output_size', 'num_params'],
+                      row_settings=['var_names']))
+
 
 if __name__ == '__main__':
     batch_images = torch.rand(size=(16,3,512,512), device=device)

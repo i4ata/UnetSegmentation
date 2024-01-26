@@ -19,7 +19,8 @@ class Unet(SegmentationModel):
     """
     
     def __init__(self, 
-                 name: str = 'default_name', 
+                 name: str = 'default_name',
+                 from_file: bool = True,
                  image_size: Tuple[int, int] = (320, 320),
                  encoder_name: str = 'timm-efficientnet-b0',
                  pretrained: bool = True,
@@ -35,17 +36,21 @@ class Unet(SegmentationModel):
         self.image_size = image_size
         self.in_channels = in_channels
         self.device = device
-        self.unet = smp.Unet(
-            encoder_name=encoder_name,
-            encoder_weights='imagenet' if pretrained else None,
-            in_channels=in_channels,
-            encoder_depth=encoder_depth,
-            classes=1,
-            activation=None
-        ).to(self.device)
-        
+
         self.save_path = f'models/{name}.pth'
-        
+
+        if from_file:
+            self.unet = torch.load(self.save_path, map_location=device)
+        else:
+            self.unet = smp.Unet(
+                encoder_name=encoder_name,
+                encoder_weights='imagenet' if pretrained else None,
+                in_channels=in_channels,
+                encoder_depth=encoder_depth,
+                classes=1,
+                activation=None
+            ).to(device)
+
         bce_loss_fn = nn.BCEWithLogitsLoss()
         dice_loss_fn = smp.losses.DiceLoss(mode='binary')
         self.loss_fn = lambda logits, masks: bce_loss_fn(logits, masks) + dice_loss_fn(logits, masks)
@@ -61,6 +66,10 @@ class Unet(SegmentationModel):
             return logits
         return logits, self.loss_fn(logits, masks)
     
+    def save(self) -> None:
+        # Save the whole model, not only the state dict, so that it will work for different unets
+        torch.save(self.unet, self.save_path)
+
     def print_summary(self, batch_size: int = 16) -> None:
         """Summary of model architecture"""
         print(summary(self.unet, input_size=(batch_size, self.in_channels, *self.image_size),

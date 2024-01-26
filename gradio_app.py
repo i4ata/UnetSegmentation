@@ -3,20 +3,23 @@
 import gradio as gr
 import random as rd
 from glob import glob
-
 import argparse
 
-from model import load_model
+from custom_unet import CustomUnet
+from unet import Unet
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--use_custom', type=bool, default=False, help='Whether to use the custom or pretrained implementation')
     parser.add_argument('--model_name', type=str, default='unet', help='Model instance to load')
     return parser.parse_args()
 
 if __name__ == '__main__':
 
     args = parse_args()
-    model = load_model(args.model_name)
+    model_class = CustomUnet if args.use_custom else Unet
+
+    model = model_class(args.model_name, from_file=True)
 
     # Get 3 random examples from the dataset
     example_list = rd.sample(glob('Human-Segmentation-Dataset-master/Training_Images/*.jpg'), k=3)

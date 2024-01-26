@@ -77,6 +77,7 @@ if __name__ == '__main__':
 
     if args.use_custom:
         model = CustomUnet(name=args.model_name,
+                           from_file=False,
                            image_size=image_size,
                            in_channels=args.image_channels,
                            start_channels=args.start_channels,
@@ -84,6 +85,7 @@ if __name__ == '__main__':
                            device=args.device)
     else:
         model = Unet(name=args.model_name, 
+                    from_file=False,
                     image_size=image_size, 
                     encoder_name=args.encoder_name,
                     pretrained=args.pretrained,
