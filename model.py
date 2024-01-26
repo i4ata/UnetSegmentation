@@ -141,13 +141,8 @@ class SegmentationModel(nn.Module):
         writer.close()
 
     def save(self) -> None:
-        """Save the model's state dict to memory"""
-        torch.save(self.state_dict(), self.save_path)
-
-    def load(self) -> None:
-        """Load the model from memory"""
-        self.load_state_dict(torch.load(self.save_path, map_location=self.device))
-        self.eval()
+        """Save the model to memory. State dict not used to account for different models"""
+        torch.save(self, self.save_path)
 
     def predict(self, 
                 test_image_path: str, 
@@ -190,3 +185,8 @@ class SegmentationModel(nn.Module):
     def print_summary(self) -> None:
         """Print the model architecture"""
         pass
+
+def load_model(model_name: str, device: str = 'cpu') -> SegmentationModel:
+    model = torch.load(f'models/{model_name}.pth', map_location=device)
+    model.eval()
+    return model

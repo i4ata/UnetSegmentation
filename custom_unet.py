@@ -8,7 +8,19 @@ Additional things: https://towardsdatascience.com/understanding-u-net-61276b10f3
 import torch
 import torch.nn as nn
 
+from model import SegmentationModel
+from early_stopper import EarlyStopper
+
+from typing import Tuple, Union, Optional
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+class DiceLoss(nn.Module):
+    def forward(self, logits: torch.Tensor, mask_true: torch.Tensor):
+        logits = torch.sigmoid(logits) > .5
+        intersection = (logits * mask_true).sum()
+        union = logits.sum() + mask_true.sum()
+        return 2 * intersection / union
 
 class DoubleConv(nn.Module):
 
@@ -32,13 +44,15 @@ class Up(nn.Module):
     def forward(self, x_left, x_right):
         return self.conv(torch.cat((x_left, self.upconv(x_right)), dim=1))
 
-class CustomUnet(nn.Module):
+class UnetModel(nn.Module):
     
-    def __init__(self, in_channels: int = 3, out_channels: int = 1, depth: int = 3, start_channels: int = 16) -> None:
+    def __init__(self, in_channels: int = 3, depth: int = 3, start_channels: int = 16) -> None:
         
         super().__init__()
-        
-        self.encoder_layers = nn.ModuleList([DoubleConv(in_channels, start_channels)])
+
+        self.input_conv = DoubleConv(in_channels, start_channels)
+
+        self.encoder_layers = nn.ModuleList()
         for i in range(depth):
             self.encoder_layers.append(DoubleConv(start_channels, start_channels * 2))
             start_channels *= 2
@@ -48,15 +62,16 @@ class CustomUnet(nn.Module):
             self.decoder_layers.append(Up(start_channels, start_channels // 2))
             start_channels //= 2
 
-        self.output_conv = nn.Conv2d(start_channels, out_channels, kernel_size=1)
+        self.output_conv = nn.Conv2d(start_channels, 1, kernel_size=1)
+        
         self.pool = nn.MaxPool2d(2, 2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         
-        x = self.encoder_layers[0](x)
+        x = self.input_conv(x)
         xs = [x]
 
-        for encoding_layer in self.encoder_layers[1:]:
+        for encoding_layer in self.encoder_layers:
             x = encoding_layer(self.pool(x))
             xs.append(x)
             
@@ -65,8 +80,43 @@ class CustomUnet(nn.Module):
 
         return self.output_conv(x)
 
+class CustomUnet(SegmentationModel):
+    def __init__(self,
+                 name: str = 'default_name', 
+                 image_size: Tuple[int, int] = (320, 320),
+                 in_channels: int = 3,
+                 start_channels: int = 16,
+                 encoder_depth: int = 5,
+                 device: str = 'cuda' if torch.cuda.is_available() else 'cpu') -> None:
+        
+        super().__init__()
+
+        assert image_size[0] % (2**encoder_depth) == 0
+        assert image_size[1] % (2**encoder_depth) == 0
+
+        self.name = name
+        self.image_size = image_size
+        self.device = device
+
+        self.unet = UnetModel(in_channels=in_channels, depth=encoder_depth, start_channels=start_channels).to(device)
+        self.save_path = f'models/{name}.pth'
+
+        self.bce_loss = nn.BCEWithLogitsLoss()
+        self.dice_loss = DiceLoss()
+        self.loss_fn = lambda logits, masks: self.bce_loss(logits, masks) + self.dice_loss(logits, masks)
+
+    def configure_optimizers(self, **kwargs):
+        self.optimizer = torch.optim.Adam(params=self.unet.parameters(), lr=kwargs['lr'])
+        self.early_stopper = EarlyStopper(patience=kwargs['patience'])
+
+    def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        logits = self.unet(images)
+        if masks is None:
+            return logits
+        return logits, self.loss_fn(logits, masks)
+
 if __name__ == '__main__':
     batch_images = torch.rand(size=(16,3,512,512), device=device)
-    model = CustomUnet().to(device)
+    model = UnetModel().to(device)
     out = model(batch_images)
     print(out.shape)

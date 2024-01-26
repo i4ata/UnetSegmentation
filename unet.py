@@ -24,6 +24,7 @@ class Unet(SegmentationModel):
                  encoder_name: str = 'timm-efficientnet-b0',
                  pretrained: bool = True,
                  in_channels: int = 3,
+                 encoder_depth: int = 5,
                  device: str = 'cuda' if torch.cuda.is_available() else 'cpu') -> None:
         """Instantiate Unet with `imagenet` pretrained weights.
         Use `Adam` as an optimizer, loss function is the sum of DICE and BCE
@@ -38,11 +39,12 @@ class Unet(SegmentationModel):
             encoder_name=encoder_name,
             encoder_weights='imagenet' if pretrained else None,
             in_channels=in_channels,
+            encoder_depth=encoder_depth,
             classes=1,
             activation=None
         ).to(self.device)
         
-        self.save_path = f'models/{self.name}.pth'
+        self.save_path = f'models/{name}.pth'
         
         bce_loss_fn = nn.BCEWithLogitsLoss()
         dice_loss_fn = smp.losses.DiceLoss(mode='binary')
