@@ -17,6 +17,8 @@ from typing import Tuple, Union, Optional
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class DiceLoss(nn.Module):
+    """Manual implementation of the DICE loss."""
+    
     def forward(self, logits: torch.Tensor, mask_true: torch.Tensor):
         logits = torch.sigmoid(logits) > .5
         intersection = (logits * mask_true).sum()
@@ -24,6 +26,7 @@ class DiceLoss(nn.Module):
         return 2 * intersection / union
 
 class DoubleConv(nn.Module):
+    """PyTorch module with 2 convolutional layers and ReLU activation"""
 
     def __init__(self, in_channels: int, out_channels: int) -> None:
         
@@ -36,6 +39,9 @@ class DoubleConv(nn.Module):
         return self.relu(self.conv2(self.relu(self.conv1(x))))
     
 class Up(nn.Module):
+    """PyTorch module that handles the transposed convolution, the residual connections,
+    and the subsequent double convolution.
+    """
 
     def __init__(self, in_channels, out_channels) -> None:
         super().__init__()
@@ -46,7 +52,8 @@ class Up(nn.Module):
         return self.conv(torch.cat((x_left, self.upconv(x_right)), dim=1))
 
 class UnetModel(nn.Module):
-    
+    """Manual implementation of the Unet."""
+
     def __init__(self, in_channels: int = 3, depth: int = 3, start_channels: int = 16) -> None:
         
         super().__init__()
@@ -82,6 +89,8 @@ class UnetModel(nn.Module):
         return self.output_conv(x)
 
 class CustomUnet(SegmentationModel):
+    """Wrapper of the custom unet to function as a trainable model."""
+
     def __init__(self,
                  name: str = 'default_name',
                  from_file: bool = True, 
@@ -131,10 +140,3 @@ class CustomUnet(SegmentationModel):
         print(summary(self.unet, input_size=(batch_size, self.in_channels, *self.image_size),
                       col_names=['input_size', 'output_size', 'num_params'],
                       row_settings=['var_names']))
-
-
-if __name__ == '__main__':
-    batch_images = torch.rand(size=(16,3,512,512), device=device)
-    model = UnetModel().to(device)
-    out = model(batch_images)
-    print(out.shape)
