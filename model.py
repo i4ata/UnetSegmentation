@@ -16,26 +16,6 @@ from typing import Optional, Union, Tuple, Literal
 from early_stopper import EarlyStopper
 
 class SegmentationModel(nn.Module):
-    """Base class for segmentation model
-    
-    Attributes:
-        name: str
-        device: 'cpu' or 'cuda'
-        optimizer: PyTorch optimizer
-        early_stopper: Optionally, enable early stopping
-        lr_scheduler: Optionally, enable lr scheduling
-        save_path: str - where to save the model
-
-    Methods:
-        forward: defines the forward pass
-        _train_step: how a single pass through the training dataloader goes
-        _test_step: how a single pass through the testing dataloader goes
-        train_model: train the model
-        save: save a checkpoint of the model's state dict to memory
-        load: load a model's state dict from memory
-        predict: perform inference on a single image
-        print_summary: print the structure of the model (to be used with torchsummary)
-    """
 
     name: str = "base name"
     device: Literal['cpu', 'cuda'] = None
@@ -50,27 +30,11 @@ class SegmentationModel(nn.Module):
         raise NotImplementedError()
 
     def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Forward pass. To be overwritten in subclasses
         
-        Args:
-            images: tensor (BCHW)
-            masks: tensor (B1HW)
-
-        Returns:
-            logits of the model
-            or
-            logits with loss function
-        """
         raise NotImplementedError()
 
     def _train_step(self, data_loader: DataLoader) -> float:
-        """Standard training step. Optimize the model parameters.
-        
-        Args:
-            data_loader: data into batches
-        Returns:
-            mean loss for the dataloader
-        """
+
         self.train()
         total_loss = 0.
         for images, masks in data_loader:
@@ -86,13 +50,7 @@ class SegmentationModel(nn.Module):
         return total_loss / len(data_loader)
 
     def _test_step(self, data_loader: DataLoader) -> float:
-        """Standard testing step. Perform inference on the test data
-        
-        Args:
-            data_loader: data into batches
-        Returns:
-            mean loss for the dataloader
-        """
+
         self.eval()
         total_loss = 0.
         with torch.inference_mode():
@@ -103,13 +61,7 @@ class SegmentationModel(nn.Module):
         return total_loss / len(data_loader)
 
     def train_model(self, train_loader: DataLoader, test_loader: DataLoader, epochs: int, log_dir: str) -> None:
-        """Standard training procedure. Log results to tensorboard.
-        Use early stopping and learning rate scheduling if implemented
         
-        Args:
-            train_loader, test_loader: the PyTorch Dataloaders used for training and validation
-            epochs: the number of training epochs
-        """
         writer = SummaryWriter(log_dir=f'{log_dir}/{self.name}')
         
         for i in range(epochs):
@@ -141,21 +93,13 @@ class SegmentationModel(nn.Module):
         writer.close()
 
     def save(self) -> None:
-        """Save the model to memory"""
         raise NotImplementedError()
 
     def predict(self, 
                 test_image_path: str, 
                 option: Literal['mask', 'image_with_mask', 'mask_and_image_with_mask'] = 'image_with_mask'
         ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Predict with a trained model on an image.
         
-        Args:
-            test_image_path: path to the image to predict
-            option: whether to return the image with the overlayed mask, only the mask, or both
-        Return:
-            depending on the value of `option`
-        """
         self.eval()
         input_resizer = A.Resize(*self.image_size)
         
@@ -183,5 +127,4 @@ class SegmentationModel(nn.Module):
             return resized_mask_tensor.numpy(), image_with_mask.permute(1,2,0).numpy()
     
     def print_summary(self) -> None:
-        """Print the model architecture"""
         raise NotImplementedError()

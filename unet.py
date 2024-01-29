@@ -11,12 +11,6 @@ from model import SegmentationModel
 from typing import Optional, Union, Tuple
 
 class Unet(SegmentationModel):
-    """Class that implements a pretrained Unet model. Extends SegmentationModel
-    
-    Attributes:
-        unet: a pretrained neural network with Unet architecture
-        loss_fn: the loss function used to train the model
-    """
     
     def __init__(self, 
                  name: str = 'default_name',
@@ -27,9 +21,7 @@ class Unet(SegmentationModel):
                  in_channels: int = 3,
                  encoder_depth: int = 5,
                  device: str = 'cuda' if torch.cuda.is_available() else 'cpu') -> None:
-        """Instantiate Unet with `imagenet` pretrained weights.
-        Use `Adam` as an optimizer, loss function is the sum of DICE and BCE
-        """
+        
         super().__init__()
         
         self.name = name
@@ -60,7 +52,6 @@ class Unet(SegmentationModel):
         self.early_stopper = EarlyStopper(patience=kwargs['patience'])
 
     def forward(self, images: torch.Tensor, masks: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Forward pass"""
         logits = self.unet(images)
         if masks is None:
             return logits
@@ -71,7 +62,6 @@ class Unet(SegmentationModel):
         torch.save(self.unet, self.save_path)
 
     def print_summary(self, batch_size: int = 16) -> None:
-        """Summary of model architecture"""
         print(summary(self.unet, input_size=(batch_size, self.in_channels, *self.image_size),
                       col_names=['input_size', 'output_size', 'num_params'],
                       row_settings=['var_names']))
