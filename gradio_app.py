@@ -28,9 +28,9 @@ if __name__ == '__main__':
         fn=model.predict,
         inputs=gr.Image(type='filepath'),
         outputs=gr.Image(type='numpy'),
-        title='Penis title',
-        description='Penis description',
-        article='Penis article',
+        title='Unet',
+        description='Semantic segmentation on people using the Unet architecture',
+        article='',
         examples=example_list
     )
 
