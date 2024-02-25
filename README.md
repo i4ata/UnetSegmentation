@@ -14,6 +14,3 @@ To visually compare models on some examples:
 
 ```python compare_models.py```
 
-To launch a Gradio application:
-
-```python3 gradio_app.py```
