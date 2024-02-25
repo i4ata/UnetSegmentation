@@ -15,7 +15,7 @@ class SegmentationDataset:
 
         if not os.path.exists('Human-Segmentation-Dataset-master/'):
             print('Downloading dataset')
-            os.system('git clone https://github.com/parth1620/Human-Segmentation-Dataset-master.git')
+            os.system('git clone https://github.com/VikramShenoy97/Human-Segmentation-Dataset')
         else:
             print('Dataset already downloaded!')
             
