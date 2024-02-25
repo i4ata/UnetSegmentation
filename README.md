@@ -1,6 +1,6 @@
 # UnetSegmentation
 
-My own implementation of the U-net architecture compared to a pretrained model from PyTorch Segmentation Models.
+My own implementation of the U-net architecture compared to a pretrained model from PyTorch Segmentation Models. The dataset can be found [here](https://github.com/VikramShenoy97/Human-Segmentation-Dataset)
 
 To train:
 
