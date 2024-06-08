@@ -1,0 +1,10 @@
+torch
+pillow
+pandas
+numpy
+albumentations
+torchvision
+matplotlib
+torchinfo
+torchmetrics
+segmentation-models-pytorch

@@ -4,7 +4,7 @@ My own implementation of the U-net architecture compared to a pretrained model f
 
 To train:
 
-```python train.py```
+```python -m src.train```
 
 To visualize training:
 
@@ -12,8 +12,4 @@ To visualize training:
 
 To visually compare models on some examples:
 
-```python compare_models.py```
-
-To launch a Gradio application:
-
-```python3 gradio_app.py```
+```python -m src.evaluate```
