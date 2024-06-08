@@ -8,3 +8,5 @@ matplotlib
 torchinfo
 torchmetrics
 segmentation-models-pytorch
+tensorboard
+
