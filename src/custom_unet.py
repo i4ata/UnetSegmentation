@@ -1,8 +1,7 @@
-"""This python module impements the Unet architecture as defined in https://arxiv.org/pdf/1505.04597.
+"""
+This python module impements the Unet architecture as defined in https://arxiv.org/pdf/1505.04597.
 Only, I use padded convolutions. That way, there is no need for center cropping and the output mask
 is the same shape as the input image. 
-
-Additional things: https://towardsdatascience.com/understanding-u-net-61276b10f360
 """
 
 import torch
@@ -10,7 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class DoubleConv(nn.Module):
-    
+    """(3x3) conv -> ReLU -> (3x3) conv -> ReLU"""
+
     def __init__(self, in_channels: int, out_channels: int) -> None:
         
         super().__init__()
@@ -21,8 +21,10 @@ class DoubleConv(nn.Module):
         return F.relu(self.conv2(F.relu(self.conv1(x))))
     
 class Up(nn.Module):
+    """Perform a deconvolution and concatenate with the output of the opposing layer"""
 
     def __init__(self, in_channels: int, out_channels: int) -> None:
+
         super().__init__()
         self.upconv = nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels=in_channels, out_channels=out_channels)
@@ -32,7 +34,11 @@ class Up(nn.Module):
 
 class CustomUnet(nn.Module):
 
-    def __init__(self, in_channels: int = 3, depth: int = 3, start_channels: int = 16) -> None:
+    def __init__(self, in_channels: int, depth: int, start_channels: int) -> None:
+        """Structure of the Unet. 
+        Each layer in the decoder halves the image size in both dimensions and doubles the number of channels.
+        The decoder layer is the opposite.
+        """
         
         super().__init__()
 
@@ -59,7 +65,7 @@ class CustomUnet(nn.Module):
             x = encoding_layer(F.max_pool2d(x, 2))
             xs.append(x)
             
-        for decoding_layer, x_left in zip(self.decoder_layers, reversed(xs[:-1])):
+        for decoding_layer, x_left in zip(self.decoder_layers, reversed(xs[:-1]), strict=True):
             x = decoding_layer(x_left, x)
 
         return self.output_conv(x)

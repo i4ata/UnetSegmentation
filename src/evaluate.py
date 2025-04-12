@@ -1,4 +1,4 @@
-"""Simple scipt to visually compare the performance of the 2 models on some examples in the datasets.1"""
+"""Simple scipt to visually compare the performance of the 2 models on some examples in the datasets"""
 
 import torch
 from torchvision.utils import draw_segmentation_masks
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     overlayed_masks_custom = [
         draw_segmentation_masks(
             image=image,
-            masks=torch.from_numpy(preds).unsqueeze(0).bool(),
+            masks=preds,
             colors='red',
             alpha=.8
         ).permute(1,2,0)
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     overlayed_masks_pretrained = [
         draw_segmentation_masks(
             image=image,
-            masks=torch.from_numpy(preds).unsqueeze(0).bool(),
+            masks=preds,
             colors='red',
             alpha=.8
         ).permute(1,2,0)

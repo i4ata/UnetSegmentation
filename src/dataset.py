@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 import os
 from typing import Optional, Tuple
+import subprocess
 
 from src.utils import train_transform, val_transform
 
@@ -15,27 +16,28 @@ class SegmentationDataset:
 
     def __init__(self) -> None:
 
-        if not os.path.exists('Human-Segmentation-Dataset-master/'):
+        # Download the data
+        data_path = 'Human-Segmentation-Dataset-master'
+        if not os.path.exists(data_path):
             print('Downloading dataset')
-            os.system('git clone https://github.com/parth1620/Human-Segmentation-Dataset-master.git')
+            subprocess.run(['git', 'clone', 'https://github.com/parth1620/Human-Segmentation-Dataset-master.git'])
         else:
             print('Dataset already downloaded!')
-            
-        self.df = pd.read_csv('Human-Segmentation-Dataset-master/train.csv')
-        self.dataset = TorchDataset(self.df)
-    
-    def split(self, train_size: float = .8, random_state: Optional[int] = 0) -> None:
+        self.df = pd.read_csv(os.path.join('Human-Segmentation-Dataset-master', 'train.csv'))
+        
+    def get_dataloaders(self, batch_size: int, train_size: float) -> Tuple[DataLoader, DataLoader]:
 
-        train_df = self.df.sample(frac=train_size, random_state=random_state)
+        # Split indices
+        train_df = self.df.sample(frac=train_size)
         test_df = self.df.drop(train_df.index)
 
-        self.train_dataset = TorchDataset(train_df, train_transform)
-        self.val_dataset = TorchDataset(test_df, val_transform)
+        # Initializes the train and validation datasets with the corresponding samples and transforms
+        train_dataset = TorchDataset(train_df, train_transform)
+        val_dataset = TorchDataset(test_df, val_transform)
 
-    def get_dataloaders(self, batch_size: int = 32) -> Tuple[DataLoader, DataLoader]:
-
-        train_dataloader = DataLoader(dataset=self.train_dataset, batch_size=batch_size)
-        val_dataloader = DataLoader(dataset=self.val_dataset, batch_size=batch_size)
+        # Initialize the Pytorch dataloaders
+        train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size)
+        val_dataloader = DataLoader(dataset=val_dataset, batch_size=batch_size)
 
         return train_dataloader, val_dataloader
 
@@ -46,19 +48,20 @@ class TorchDataset(Dataset):
         self.df = df
         self.augmentation = augmentation
 
-    def __len__(self) -> int:
-        
+    def __len__(self) -> int:        
         return len(self.df)
     
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         
+        # Read in the image and the label (mask)
         sample = self.df.iloc[idx]
-        
         image = np.asarray(Image.open(sample['images']))
         mask = np.asarray(Image.open(sample['masks']))
 
+        # Correct grayscale images
         if image.ndim == 2: image = np.tile(image[:,:,np.newaxis], (1,1,3))
 
+        # Perform data augmentation if specified
         if self.augmentation is not None:
             transformed = self.augmentation(image=image, mask=mask)
             image, mask = transformed['image'], transformed['mask']
@@ -70,18 +73,3 @@ class TorchDataset(Dataset):
         mask = torch.from_numpy(mask).float().round().unsqueeze(0) / 255.
 
         return image, mask
-
-from tqdm import tqdm
-from glob import glob
-if __name__ == '__main__':
-    d = SegmentationDataset().dataset
-    print(d.df.iloc[242].values)
-    # print(d[242])
-    # for i in tqdm(range(len(d))):
-    #     try:
-    #         image, mask = d[i]
-    #     except RuntimeError as e:
-    #         print(d.df.iloc[i])
-    #         print(np.asarray(Image.open(d.df.iloc[i]['images'])).shape)
-        # print(image.shape, mask.shape)
-    # for image_path in glob('Human-Segmentation-Dataset-master/Training_Images/*.jpg'): print(image_path, np.asarray(Image.open(image_path)).ndim)

@@ -1,3 +1,9 @@
+# Models
+models/
+
+# Tensorboard runs
+runs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

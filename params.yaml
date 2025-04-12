@@ -1,0 +1,22 @@
+seed: 0
+
+models:
+  custom:
+    depth: 3
+    start_channels: 16
+    name: custom
+
+  pretrained:
+    name: pretrained
+
+augmentation:
+  resize: [320, 320]
+  horizontal_flip: 0.5
+  vertical_flip: 0.5
+
+train:
+  train_size: 0.8
+  epochs: 20
+  learning_rate: 0.001
+  batch_size: 16
+  patience: 3
