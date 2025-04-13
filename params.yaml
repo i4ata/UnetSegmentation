@@ -1,22 +1,58 @@
+# Global random seed for reproducibility
 seed: 0
 
+# Parameters for the individual models to train
 models:
+
+  # The custom U-Net implementation
   custom:
+
+    # Encoder depth
     depth: 3
+
+    # The number of filters for the first encoder layer (
+    # Each subsequent layer doubles the filters
     start_channels: 16
+
+    # Identifier for the model
+    # The weights are saved at models/<name>.pt
     name: custom_unet
 
+  # The pretrained implementation from segmentation_models_pytorch 
+  # All parameters are kept to default since the focus is on the custom implementation
   pretrained:
+
+    # Identifier
     name: pretrained_unet
 
+# Parameters for the data augmentation applied during training, common for both models
 augmentation:
+
+  # Resize the input images and ground truth masks
   resize: [320, 320]
+
+  # Probability of flipping the images (and masks) horizontally
   horizontal_flip: 0.5
+
+  # Probability of flipping the images (and masks) vertically
   vertical_flip: 0.5
 
+# Training procedure paramters, common for both models
 train:
+
+  # Proportion of the dataset to use for training
+  # The rest is for evaluation and early stopping
   train_size: 0.8
+  
+  # Maximum number of training epochs (sweeps over the whole dataset)
   epochs: 20
+
+  # Optimizer learning rate
   learning_rate: 0.001
+
+  # Number of samples per batch
   batch_size: 16
+
+  # Early stopping patience limit
+  # If the validation loss hasn't improved for that many consecutive epochs, stop the training
   patience: 3
