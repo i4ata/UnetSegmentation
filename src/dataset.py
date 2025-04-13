@@ -18,7 +18,7 @@ class SegmentationDataset:
 
         # Download the data
         data_path = 'Human-Segmentation-Dataset-master'
-        if not os.path.exists(data_path):
+        if not os.path.exists(data_path) or not os.listdir(data_path):
             print('Downloading dataset')
             subprocess.run(['git', 'clone', 'https://github.com/parth1620/Human-Segmentation-Dataset-master.git'])
         else:

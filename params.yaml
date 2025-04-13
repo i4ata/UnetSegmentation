@@ -4,10 +4,10 @@ models:
   custom:
     depth: 3
     start_channels: 16
-    name: custom
+    name: custom_unet
 
   pretrained:
-    name: pretrained
+    name: pretrained_unet
 
 augmentation:
   resize: [320, 320]
