@@ -82,7 +82,10 @@ class Trainer:
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=learning_rate)
         early_stopper = EarlyStopper(patience)
         self.loss_fn = UnetLoss()
-        save_path = os.path.join('models', self.name + '.pt')
+
+        models_path = 'models'
+        os.makedirs(models_path, exist_ok=True)
+        save_path = os.path.join(models_path, self.name + '.pt')
 
         for epoch in tqdm(range(epochs)):
             train_loss, train_iou = self._train_step()
@@ -120,10 +123,10 @@ if __name__ == '__main__':
         params = yaml.safe_load(f)
 
     # CUSTOM MODEL
-    # model_params = params['models']['custom']
-    # model = CustomUnet(in_channels=3, depth=model_params['depth'], start_channels=model_params['start_channels'])
-    # trainer = Trainer(model=model, name=model_params['name'], random_state=params['seed'])
-    # trainer.fit(**params['train'])
+    model_params = params['models']['custom']
+    model = CustomUnet(in_channels=3, depth=model_params['depth'], start_channels=model_params['start_channels'])
+    trainer = Trainer(model=model, name=model_params['name'], random_state=params['seed'])
+    trainer.fit(**params['train'])
 
     # PRETRAINED MODEL
     model_params = params['models']['pretrained']
