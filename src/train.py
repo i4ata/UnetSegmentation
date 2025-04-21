@@ -23,7 +23,7 @@ class UnetLoss(nn.Module):
     """
     The loss for the models: BCE + Dice
     BCE is used since we are doing binary classification
-    Dice is 2x intersection / union for the predicted and ground truth segmentations
+    Dice is 1 - 2x intersection / union for the predicted and ground truth segmentations
     """
 
     def __init__(self) -> None:
