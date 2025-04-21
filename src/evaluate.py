@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # Choose 2 random images
     rd.seed(params['seed'])
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    example_images = rd.sample(glob(os.path.join('Human-Segmentation-Dataset-master', 'Training_Images', '*.jpg')), k=2)
+    example_images = rd.sample(sorted(glob(os.path.join('Human-Segmentation-Dataset-master', 'Training_Images', '*.jpg'))), k=2)
     example_masks = [image_path.replace('Training_Images', 'Ground_Truth').replace('jpg', 'png') for image_path in example_images]
 
     # Load the custom model and do predictions
@@ -74,4 +74,4 @@ if __name__ == '__main__':
     axs[0,3].set_title('Pretrained Unet')
     
     plt.tight_layout()
-    plt.savefig('example_predictions.png', dpi=400)
+    plt.savefig('example_predictions.svg')
